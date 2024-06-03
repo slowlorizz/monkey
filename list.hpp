@@ -322,6 +322,8 @@ namespace monkey {
 
                 delete itm;
 
+                this->_len -= 1;
+
                 return v;
             }
 
