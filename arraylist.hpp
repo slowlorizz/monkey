@@ -22,9 +22,10 @@ namespace monkey {
 
             int _buffer_size = 10; // the buffer size (for mem-policy 'buffer')
             ArrayList<T>::MemoryPolicy _mem_policy = ArrayList<T>::MemoryPolicy::strict; // Current configured memory-policy
+            bool _dynamic_mem_policy = true; // if the memory-policy is set dynamicly (default: true)
 
             int _mem_policy_strict = 10; // until which length the memory policy is 'strict'
-            unsigned int _mem_policy_buffer = this->_mem_policy_strict_cap + 30 // until which length the memory policy is 'buffer'
+            int _mem_policy_buffer = this->_mem_policy_strict + 30; // until which length the memory policy is 'buffer'
 
             T* _array;
 
@@ -37,15 +38,16 @@ namespace monkey {
             // sets the memory-policy based on capacity and length();
             ArrayList<T>& set_memory_policy()
             {
-
-                if (this->_len < this->_mem_policy_strict) {
-                    this->_mem_policy = MemoryPolicy::strict;
-                }
-                else if (this->_len < this->_mem_policy_buffer) {
-                    this->_mem_policy = MemoryPolicy::buffer;
-                }
-                else {
-                    this->_mem_policy = MemoryPolicy::exponential;
+                if(this->_dynamic_mem_policy){
+                    if (this->_len < this->_mem_policy_strict) {
+                        this->_mem_policy = MemoryPolicy::strict;
+                    }
+                    else if (this->_len < this->_mem_policy_buffer) {
+                        this->_mem_policy = MemoryPolicy::buffer;
+                    }
+                    else {
+                        this->_mem_policy = MemoryPolicy::exponential;
+                    }
                 }
 
                 return *this;
@@ -126,24 +128,35 @@ namespace monkey {
                     return this->alloc(0);
                 }
                 else {
-                    return this->alloc((this->_cap - n))
+                    return this->alloc((this->_cap - n));
                 }
 
                 return *this;
             }
 
-            // used for at adding 1 element, Allocates more space according to memory-policy
-            ArrayList<T>& grow() 
+            // used for adding 1 element, Allocates more space according to memory-policy
+            ArrayList<T>& grow(int n = 1) 
             {
-                if (this->_len == this->_cap) {
-                    if (this->_mem_policy == MemoryPolicy::strict) {
-                        this->alloc(this->_cap + 1);
-                    }
-                    else if(this->_mem_policy == MemoryPolicy::buffer) {
-                        this->alloc(this->_cap + this->_buffer_size);
-                    }
-                    else {
-                        this->alloc(this->_cap * 2);
+                if (n < 0) {
+                    throw "Negative growth!!";
+                }
+                else if (n > 0) {
+                    if (int(this->_len + n) > this->_cap) {
+                        if (this->_mem_policy == MemoryPolicy::strict ) {
+                            this->alloc(this->_cap + n);
+                        }
+                        else if(this->_mem_policy == MemoryPolicy::buffer) {
+                            this->alloc(int(this->_buffer_size * int(int(int(int(this->_len + n) - int(int(this->_len + n) % this->_buffer_size)) / this->_buffer_size) + 1)));
+                        }
+                        else if(this->_mem_policy == MemoryPolicy::exponential) {
+                            int c = this->_cap;
+
+                            while(c < int(this->_len + n)) {
+                                c *= 2;
+                            }
+
+                            this->alloc(c);
+                        }
                     }
                 }
 
@@ -151,18 +164,31 @@ namespace monkey {
             }
 
             // Deallocates N space
-            ArrayList<T>& shrink() 
+            ArrayList<T>& shrink(int n = 1) 
             {
                 // todo check if lentgth is smaller then the resulting capacity
 
-                if (this->_mem_policy == MemoryPolicy::strict) {
-                    this->alloc(this->_cap - 1);
+                if (n < 0) {
+                    throw "Negative shrink!!";
                 }
-                else if(this->_mem_policy == MemoryPolicy::buffer) {
-                    this->alloc(this->_cap - this->_buffer_size);
+                else if(n == this->_cap) {
+                    this->dealloc();
+                }
+
+                if (this->_mem_policy == MemoryPolicy::strict) {
+                    this->alloc(this->_cap - n);
+                }
+                else if(this->_mem_policy == MemoryPolicy::buffer && int(this->_cap - int(this->_len - n)) >= this->_buffer_size) {
+                    this->alloc(int(this->_buffer_size * int(int(int(int(this->_len - n) - int(int(this->_len - n) % this->_buffer_size)) / this->_buffer_size) + 1)));
                 }
                 else {
-                    this->alloc(this->_cap / 2);
+                    int c = this->_cap;
+
+                    while (int(c / 2) > int(this->_len - n)) {
+                        c /= 2;
+                    }
+
+                    this->alloc(c);
                 }
 
                 return *this;
@@ -172,7 +198,6 @@ namespace monkey {
             ArrayList<T>& optimize() 
             {
                 this->alloc(this->_len);
-
                 return *this;
             }
             
@@ -218,9 +243,17 @@ namespace monkey {
         public:
             
 
-            ArrayList(int cap = 1)
+            ArrayList()
             {
-                if (n < 1) {
+                this->_len = 0;
+                this->_cap = 1;
+
+                this->alloc(1);
+            }
+
+            ArrayList(int cap)
+            {
+                if (cap < 1) {
                     throw "negative or zero numbers not allowed for ArrayList constructor";
                 }
 
@@ -235,10 +268,23 @@ namespace monkey {
                 this->del();
             }
 
+            T& operator[](int I) {
+                this->_idx(&I);
+                return this->_array[I];
+            }
+
+            ArrayList<T>& operator<<(T v) {
+                return this->push(v);
+            }
+
+            ArrayList<T>& operator<<(ArrayList<T>& li) {
+                return this->push(li);
+            }
+
             // Configures the capacity buffer (for memory-policy 'buffer')
             ArrayList<T>& set_buffer_size(int size) 
             {
-                if (n < 1) {
+                if (size < 1) {
                     throw "buffer_size must be at least 1";
                 }
 
@@ -247,29 +293,101 @@ namespace monkey {
             }
 
             // Gets the current Buffer size (for memory-policy 'buffer')
-            unsigned int get_buffer_size()
+            int get_buffer_size()
             {
                 return this->_buffer_size;
             }
 
+            // Sets memory Policy to specified Policy, and stays at that policy (disables dynamic memory policy switching)
+            ArrayList<T>& set_mem_policy(ArrayList<T>::MemoryPolicy mp) 
+            {
+                this->_mem_policy = mp;
+                this->_dynamic_mem_policy = false;
+
+                return *this;
+            }
+
+            // Sets memory-policy management to dynamic (mostly used when set to specific memory policy to reactivate the dynamic mode)
+            ArrayList<T>& enable_dynamic_mem_policy() 
+            {
+                this->_dynamic_mem_policy = true;
+                this->set_mem_policy();
+
+                return *this;
+            }
+
             // returns current length
-            int len() {
+            int len() 
+            {
                 return this->_len;
             }
 
             // returns current capacity
-            int cap() {
+            int cap() 
+            {
                 return this->_cap;
             }
 
-            ArrayList<T>& clear() {
+            ArrayList<T>& clear() 
+            {
                 return this->dealloc();
             }
 
-            ArrayList<T>& push(T v) {
-                if (this->_len == this->_cap) {
+            // Adds one Element to the back of the array
+            ArrayList<T>& push(T v) 
+            {
+                this->grow();
+                this->_array[int(this->_len)] = v;
+                this->_len += 1;
 
+                return *this;
+            }
+
+            // Appends another ArrayList at the end of this ArrayList (makes a copy!)
+            ArrayList<T>& push(ArrayList<T>& li) 
+            {
+                this->grow(li.len());
+
+                for(int i = this->_len; i < int(this->_len + li.len()); ++i)
+                {
+                    this->_array[i] = li[int(i - this->_len)];
                 }
+
+                this->_len += li.len();
+
+                return *this;
+            }
+
+            // Adds one Element at a specified index (pushes all later elements one index back)
+            ArrayList<T>& insert(T v, int I)
+            {
+                if(I == this->_len) {
+                    this->push(v);
+                }
+
+                this->_idx(&I);
+
+                this->grow();
+
+                for(int i = int(this->_len - 1); i >= I; --i) {
+                    this->_array[i + 1] = this->_array[i];
+                }
+
+                this->_array[I] = v;
+                this->_len += 1;
+
+                return *this;
+            }
+
+            T pop(int I = -1) 
+            {
+                this->_idx(&I);
+
+                T v = this->_array[I];
+                this->shrink(1);
+                this->_len -= 1;
+
+                return v;
             }
     };
 };

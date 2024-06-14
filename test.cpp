@@ -3,28 +3,32 @@
 
 using namespace monkey;
 
-void print(List<int>::Iterator* it) {
-    std::cout << *it->v << "  ";
-}
-
-int mp(List<int>::Iterator* it) {
-    return *it->v * 3;
-}
 
 int main() {
-    List<int> ls;
+    ArrayList<int> lst;
 
-    for (int i = 0; i < 20; ++i) {
-        if ((i % 2) == 0) {
-            ls.push(i);
-        }
-        else {
-            ls.push_front(i);
-        }
+    std::cout << "\n------------\n" << std::endl;
+    
+    for(int i = 0; i < 35; ++i) {
+        lst.push(i);
+        std::cout << "Push: " << i << std::endl;
     }
 
-    ls.map(&mp);
-    ls.foreach(&print);
+    std::cout << "\n------------\n" << std::endl;
+
+    int pv = lst.pop(2);
+
+    std::cout << "Popped:   " << pv << std::endl;
+    std::cout << "Capacity: " << lst.cap() << std::endl;
+    std::cout << "Length:   " << lst.len() << std::endl;
+
+    std::cout << std::endl;
+
+    for (int i = 0; i < lst.len(); ++i) {
+        std::cout << lst[i] << " ";
+    }
+
+    std::cout << std::endl;
 
     return 0;
 }

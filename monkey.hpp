@@ -2,5 +2,6 @@
 #define MONKEY_HPP
 
 #include "list.hpp"
+#include "arraylist.hpp"
 
 #endif
